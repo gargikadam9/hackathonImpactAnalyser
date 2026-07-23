@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.agents.schemas import ExplainabilityReport
+from app.evaluation.schemas import EvaluationReport
 from app.security.sanitizer import RedactionReport
 
 
@@ -61,6 +63,14 @@ class FullAnalysisResponseV2(BaseModel):
     historical_findings: Dict[str, Any]
     redaction_report: RedactionReport
     agent_traces: List[AgentExecutionTrace]
+
+    # MODULE 7 — Explainable AI: strict attribution matrix explaining EXACTLY
+    # why risk_score is what it is (see app/agents/react/explainability.py).
+    explainability_report: ExplainabilityReport
+
+    # MODULE 8 — Automated Evaluation: independent post-hoc audit of this
+    # same prediction (see app/evaluation/evaluator.py).
+    evaluation_report: EvaluationReport
 
     processing_time_ms: int
     mock_mode: bool

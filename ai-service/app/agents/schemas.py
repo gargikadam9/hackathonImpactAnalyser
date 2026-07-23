@@ -184,6 +184,62 @@ class RiskAnalysisReport(BaseModel):
         return RiskLevelEnum.LOW
 
 
+# ---------------------------------------------------------------------------
+# MODULE 7 — Explainable AI (XAI): Attribution Matrix output contract
+# ---------------------------------------------------------------------------
+#
+# The dashboard must never show a bare "Risk Score: 85/100" with no
+# justification. Every RiskDriver below is derived DETERMINISTICALLY from the
+# exact same `components` dict produced by `score_risk_matrix()`
+# (app/agents/react/tools.py) — see app/agents/react/explainability.py for
+# the builder. This guarantees the explanation can never drift from the
+# actual computation (no separate LLM narrative that could contradict the
+# number it's supposedly explaining).
+
+class RiskDriver(BaseModel):
+    """One line-item in the Risk Synthesizer's attribution matrix — a single,
+    named reason the risk score is what it is, traceable back to a concrete
+    code location or structural signal (never a vague, unfalsifiable claim)."""
+
+    model_config = {"extra": "forbid"}
+
+    driver_id: str = Field(..., description="Stable id within this report, e.g. 'driver-1'")
+    code_snippet: str = Field(
+        ..., description="The exact line(s) of the diff causing this risk signal, or a "
+        "structural descriptor when no line-level diff was supplied"
+    )
+    file_path: Optional[str] = Field(default=None, description="File the snippet was extracted from, if applicable")
+    severity_weight: float = Field(
+        ..., ge=0.0, le=100.0,
+        description="This driver's percentage contribution to the total risk_score; "
+        "all drivers in one report sum to ~100.0 by construction"
+    )
+    justification_text: str = Field(..., min_length=1, description="Human-readable explanation of why this driver contributes risk")
+    category: str = Field(
+        ..., description="blast_radius | criticality | historical_precedent | change_type_baseline"
+    )
+
+
+class ExplainabilityReport(BaseModel):
+    """MODULE 7 output — attached to every `FullAnalysisResponseV2` so a
+    developer can see EXACTLY why `risk_score` is what it is, not just the
+    number. Rendered by the frontend's `RiskAttributionBreakdown` dashboard
+    component (frontend/src/components/dashboard/RiskAttributionBreakdown.tsx)."""
+
+    model_config = {"extra": "forbid"}
+
+    primary_risk_drivers: List[RiskDriver] = Field(..., min_length=1, max_length=10)
+    historical_correlation_factor: str = Field(
+        ..., min_length=1,
+        description="Text explanation linking the current code-change pattern directly "
+        "to past incident root-cause analyses (or explicitly stating none was found)",
+    )
+    total_attributed_weight: float = Field(
+        ..., ge=0.0, le=100.0, description="Sum of all primary_risk_drivers[].severity_weight"
+    )
+    generated_at_ms: int = Field(..., description="Unix epoch milliseconds this report was generated")
+
+
 class MalformedOutputFallback(BaseModel):
     """
     Emitted instead of RiskAnalysisReport when the LLM output could not be

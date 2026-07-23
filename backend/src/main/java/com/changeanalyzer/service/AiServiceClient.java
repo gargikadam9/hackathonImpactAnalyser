@@ -199,6 +199,48 @@ public class AiServiceClient {
     }
 
     /**
+     * MODULE 8 — Proxy a human-in-the-loop feedback capture request
+     * (thumbs up/down and/or a manual risk-score override) to the AI
+     * service's durable feedback store.
+     */
+    public JsonNode captureFeedback(Map<String, Object> request) {
+        try {
+            ObjectNode requestBody = objectMapper.valueToTree(request);
+
+            String responseJson = webClient.post()
+                    .uri(aiServiceUrl + "/api/v1/feedback/capture")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(timeout))
+                    .block();
+
+            return objectMapper.readTree(responseJson);
+        } catch (Exception e) {
+            log.error("Failed to capture feedback: {}", e.getMessage());
+            return createErrorResponse("Feedback service unavailable: " + e.getMessage());
+        }
+    }
+
+    /**
+     * MODULE 8 — Retrieve all feedback captured so far for a given analysis.
+     */
+    public JsonNode getFeedbackForAnalysis(String analysisId) {
+        try {
+            String responseJson = webClient.get()
+                    .uri(aiServiceUrl + "/api/v1/feedback/" + analysisId)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(timeout))
+                    .block();
+            return objectMapper.readTree(responseJson);
+        } catch (Exception e) {
+            log.error("Failed to fetch feedback for analysis {}: {}", analysisId, e.getMessage());
+            return objectMapper.createArrayNode();
+        }
+    }
+
+    /**
      * Get change types from AI service.
      */
     public JsonNode getChangeTypes() {

@@ -82,3 +82,58 @@ export interface IncidentMatchCardsProps {
   emptyStateMessage?: string
   onSelectIncident?: (incident: IncidentMatch) => void
 }
+
+/**
+ * MODULE 7 — Explainable AI (XAI) & Attribution Pipeline.
+ * Presentation-only view model for one line-item in the risk attribution
+ * breakdown (decoupled from ai-service's RiskDriver Pydantic shape via
+ * services/dashboardAdapters.ts::riskAttributionFromV2).
+ */
+export interface RiskDriverView {
+  id: string
+  codeSnippet: string
+  filePath?: string | null
+  /** 0-100 */
+  severityWeight: number
+  justification: string
+  category: 'blast_radius' | 'criticality' | 'historical_precedent' | 'change_type_baseline' | string
+}
+
+export interface RiskAttributionBreakdownProps {
+  riskScore: number
+  drivers: RiskDriverView[]
+  historicalCorrelationFactor: string
+  totalAttributedWeight: number
+}
+
+/**
+ * MODULE 8 — Automated Evaluation Metric & Ground-Truth Scoring Pipeline.
+ */
+export type EvaluationVerdictLabel = 'TRUSTED' | 'REVIEW_RECOMMENDED' | 'LOW_CONFIDENCE_FLAGGED'
+
+export interface EvaluationScorecardProps {
+  verdict: EvaluationVerdictLabel
+  faithfulnessScore: number
+  unsupportedClaims: string[]
+  contextPrecision: number
+  contextRecall: number
+  contextF1: number
+  aiPredictedScore: number
+  deterministicBaselineScore: number
+  percentageDeviation: number
+  highVarianceWarning: boolean
+  evaluatorVersion: string
+}
+
+/**
+ * MODULE 8 — Feedback capture (thumbs up/down + manual override).
+ */
+export interface FeedbackWidgetProps {
+  analysisId: string
+  currentRiskScore: number
+  onSubmit: (feedback: {
+    vote?: 'up' | 'down'
+    overriddenRiskScore?: number
+    comment?: string
+  }) => Promise<void> | void
+}

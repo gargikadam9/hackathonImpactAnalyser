@@ -17,8 +17,10 @@
 11. [Configuration & Provider Strategy](#11-configuration--provider-strategy)
 12. [Containerization & Deployment](#12-containerization--deployment)
 13. [Testing Strategy](#13-testing-strategy)
-14. [Design Decisions & Trade-offs](#14-design-decisions--trade-offs)
-15. [Known Limitations / Production Hardening Path](#15-known-limitations--production-hardening-path)
+14. [Module 7: Explainable AI (XAI) & Attribution Pipeline](#14-module-7-explainable-ai-xai--attribution-pipeline)
+15. [Module 8: Automated Evaluation & Ground-Truth Scoring](#15-module-8-automated-evaluation--ground-truth-scoring)
+16. [Design Decisions & Trade-offs](#16-design-decisions--trade-offs)
+17. [Known Limitations / Production Hardening Path](#17-known-limitations--production-hardening-path)
 
 ---
 
@@ -103,10 +105,13 @@ frontend/src/
 │       ├── DependencyMap.tsx        # Renders impacted-service dependency graph
 │       ├── IncidentMatchCard.tsx    # Renders a single similar-incident match
 │       ├── RiskGaugeMetrics.tsx     # Numeric risk breakdown panel
+│       ├── RiskAttributionBreakdown.tsx  # MODULE 7: Risk Line-Item Breakdown (XAI)
+│       ├── EvaluationScorecard.tsx       # MODULE 8: verdict + faithfulness/precision/recall/delta gauges
+│       ├── FeedbackWidget.tsx            # MODULE 8: thumbs up/down + manual score override
 │       └── types.ts                 # Dashboard-specific view models
 ├── services/
-│   ├── api.ts                   # Typed fetch wrappers for every backend/AI-service endpoint
-│   └── dashboardAdapters.ts     # Maps raw API responses → dashboard view models
+│   ├── api.ts                   # Typed fetch wrappers for every backend/AI-service endpoint (incl. submitFeedback)
+│   └── dashboardAdapters.ts     # Maps raw API responses → dashboard view models (incl. Module 7/8 adapters)
 ├── types/
 │   ├── index.ts                 # Core domain types (ChangeImpactResponse, ChatResponse, ...)
 │   └── reactAnalysis.ts         # Types for the v2 ReAct pipeline response shape
@@ -208,7 +213,7 @@ logging:
 ```
 
 Key points:
-- `ddl-auto: create-drop` → the schema (and all history) is **recreated on every restart**; H2 runs fully in-memory. This is a deliberate demo/dev simplification (see [§15](#15-known-limitations--production-hardening-path)).
+- `ddl-auto: create-drop` → the schema (and all history) is **recreated on every restart**; H2 runs fully in-memory. This is a deliberate demo/dev simplification (see [§17](#17-known-limitations--production-hardening-path)).
 - `ai-service.url` is externalized via `AI_SERVICE_URL`, which Docker Compose sets to `http://ai-service:8000` (container DNS name) and local dev defaults to `http://localhost:8000`.
 - `ai-service.timeout` (30s) bounds every `WebClient` call — necessary because the v1 pipeline runs 7 sequential agent stages and can legitimately take several seconds even in mock mode.
 
@@ -246,7 +251,12 @@ ai-service/app/
 │       ├── historical_detective_agent.py  # Agent 2
 │       ├── risk_synthesizer_agent.py      # Agent 3
 │       ├── tools.py                 # Concrete tool implementations (parse_ast_diff, etc.)
-│       └── api_models.py            # v2 request/response Pydantic models
+│       ├── explainability.py        # MODULE 7: build_attribution_matrix() (XAI)
+│       └── api_models.py            # v2 request/response Pydantic models (incl. explainability_report, evaluation_report)
+├── evaluation/                      # MODULE 8: independent post-hoc evaluation
+│   ├── schemas.py                   # ContextPrecisionRecall, FaithfulnessScore, GroundTruthDelta, EvaluationReport
+│   ├── evaluator.py                 # ImpactAnalyserEvaluator ("Auditor Agent")
+│   └── feedback_store.py            # Durable JSONL-backed human-in-the-loop feedback store
 ├── rag/
 │   ├── data_loader.py            # Loads/caches all JSON + Markdown seed data
 │   ├── embeddings.py             # Embedding service abstraction (local + provider fallback)
@@ -260,8 +270,9 @@ ai-service/app/
 │   ├── change_impact.py            # POST /api/v1/change-impact/analyze[-prompt]
 │   ├── system.py                   # GET /api/v1/change-types, /components, /system/technical-details
 │   ├── sanitize.py                 # Sanitization utility endpoint(s)
-│   └── react_pipeline.py           # POST /api/v2/change-impact/analyze-react
-├── data/                            # Seed data (see §7.1)
+│   ├── react_pipeline.py           # POST /api/v2/change-impact/analyze-react
+│   └── feedback.py                 # MODULE 8: POST /api/v1/feedback/capture, GET /api/v1/feedback/{analysis_id}
+├── data/                            # Seed data (see §7.1) + feedback_store.jsonl (MODULE 8, generated at runtime)
 └── tests/                           # pytest suite (see §13)
 ```
 
@@ -289,8 +300,11 @@ app.include_router(assistant.router, prefix="/api/v1", tags=["Assistant"])
 app.include_router(change_impact.router, prefix="/api/v1", tags=["Change Impact"])
 app.include_router(system.router, prefix="/api/v1", tags=["System"])
 app.include_router(sanitize.router, prefix="/api/v1", tags=["Security"])
+# MODULE 8: human-in-the-loop feedback capture (thumbs up/down + score override)
+app.include_router(feedback.router, prefix="/api/v1", tags=["Feedback"])
 
 # v2: hardened 3-agent ReAct pipeline (Code Auditor -> Historical Detective -> Risk Synthesizer)
+# Also carries MODULE 7 (explainability_report) and MODULE 8 (evaluation_report)
 app.include_router(react_pipeline.router, prefix="/api/v2", tags=["Change Impact V2 (ReAct)"])
 ```
 
@@ -351,6 +365,10 @@ flowchart TD
     CA -->|CodeAuditReport| HD["Agent 2: Historical Detective\n(embed_query, vector_search_incidents,\nfetch_runbook)"]
     HD -->|HistoricalFindingsReport| RS["Agent 3: Risk Synthesizer\n(score_risk_matrix,\nvalidate_json_schema)"]
     RS -->|RiskAnalysisReport, strict JSON| OUT["Structured JSON:\nrisk_score, top_risks,\napplications_impacted,\nteams_notified,\nstep_by_step_mitigation"]
+    OUT --> XAI["MODULE 7: build_attribution_matrix()\n→ explainability_report"]
+    OUT --> EVAL["MODULE 8: ImpactAnalyserEvaluator.evaluate()\n→ evaluation_report"]
+    XAI --> FINAL["FullAnalysisResponseV2"]
+    EVAL --> FINAL
 ```
 
 | # | Agent | Tools (Actions) | Data Source |
@@ -384,6 +402,8 @@ def run(self, context: "SanitizedContext") -> "AgentResult":
 - **Idempotency & caching** — requests are hashed on `(scrubbed_diff_hash, target_component, change_type)`; identical resubmits within a 15-minute TTL are served from cache.
 - **Fail-closed on PII/secrets** — the sanitizer raises `SanitizationError` (HTTP 422) rather than forwarding an ambiguous high-entropy token to a cloud LLM "just in case it was a false positive."
 - **Bounded cost** — worst case is `3 agents × 3 iterations × 1 LLM call ≈ 9 LLM calls` per analysis, a known constant used for capacity planning.
+- **Explainable by construction (Module 7)** — every response also carries an `explainability_report` whose driver weights are computed from the SAME `score_risk_matrix()` components as `risk_score` itself, so the explanation can never diverge from the number it explains. See §14.
+- **Independently audited (Module 8)** — every response also carries an `evaluation_report` from a separate `ImpactAnalyserEvaluator` pass that never participates in generating the prediction, only in grading it. See §15.
 
 See `ARCHITECTURE_BLUEPRINT.md` §5 for the full token-budget / scalability analysis (AST-level slicing, hierarchical map-reduce summarization for oversized diffs, dependency-graph-over-raw-code reasoning, retrieval instead of context-stuffing).
 
@@ -457,7 +477,7 @@ Table `analyses`, one row per completed v1 analysis:
 | `analysis_id` | `VARCHAR` (unique) | Correlates with the AI service's `analysisId` |
 | `change_title`, `change_description`, `change_type` | text | Echo of the original request |
 | `risk_score` (Double), `risk_level`, `confidence` (Double) | | Core risk verdict |
-| `impacted_services`, `teams_to_notify`, `potential_risks`, `recommended_tests`, `mitigation_plan` | `TEXT` (JSON-serialized arrays) | Stored as raw JSON strings for simplicity — see [§15](#15-known-limitations--production-hardening-path) |
+| `impacted_services`, `teams_to_notify`, `potential_risks`, `recommended_tests`, `mitigation_plan` | `TEXT` (JSON-serialized arrays) | Stored as raw JSON strings for simplicity — see [§17](#17-known-limitations--production-hardening-path) |
 | `executive_summary` | `TEXT` | Human-readable narrative |
 | `full_response` | `TEXT` | The entire raw JSON response, for forward-compatibility with new fields |
 | `mock_mode` | `Boolean` | Whether this run used the mock provider |
@@ -486,7 +506,9 @@ The AI service itself holds **no durable state** beyond in-memory caches (loaded
 | `GET` | `/api/v1/components` | All 19 tracked system components + dependencies |
 | `GET` | `/api/v1/system/technical-details` | Aggregate architecture overview (service-type counts, tech stack) |
 | `POST` | `/api/v1/sanitize` | Standalone sanitization utility (see `routes/sanitize.py`) |
-| `POST` | `/api/v2/change-impact/analyze-react` | Hardened 3-agent ReAct pipeline (sanitized, strict-JSON, guardrailed) |
+| `POST` | `/api/v2/change-impact/analyze-react` | Hardened 3-agent ReAct pipeline (sanitized, strict-JSON, guardrailed); response includes `explainability_report` (Module 7) and `evaluation_report` (Module 8) |
+| `POST` | `/api/v1/feedback/capture` | **Module 8** — capture a thumbs up/down vote and/or a manual risk-score override for a given `analysis_id` |
+| `GET` | `/api/v1/feedback/{analysis_id}` | **Module 8** — retrieve all feedback captured so far for a given analysis |
 
 ### 10.2 Backend (adds persistence + history on top of the above)
 
@@ -598,7 +620,7 @@ services:
 
 | Module | Framework | Location | Command |
 |---|---|---|---|
-| AI Service | `pytest` + `pytest-asyncio` | `ai-service/tests/` (`test_agents.py`, `test_api.py`, `test_conversational_engine.py`, `test_guardrails.py`, `test_pipeline.py`, `test_rag.py`, `test_react_pipeline.py`, `test_sanitizer.py`) | `pytest tests/ -v` |
+| AI Service | `pytest` + `pytest-asyncio` | `ai-service/tests/` (`test_agents.py`, `test_api.py`, `test_conversational_engine.py`, `test_guardrails.py`, `test_pipeline.py`, `test_rag.py`, `test_react_pipeline.py`, `test_sanitizer.py`, `test_explainability.py` [Module 7], `test_evaluator.py` [Module 8], `test_feedback.py` [Module 8]) | `pytest tests/ -v` |
 | Backend | JUnit (via Spring Boot Test) | `backend/src/test/java/com/changeanalyzer/` | `mvn test` |
 | Frontend | Vitest + Testing Library | `frontend/src/App.test.tsx` | `npm test` |
 
@@ -606,7 +628,77 @@ The AI-service test suite is the most granular, covering: individual v1 agents, 
 
 ---
 
-## 14. Design Decisions & Trade-offs
+## 14. Module 7: Explainable AI (XAI) & Attribution Pipeline
+
+**Goal:** never show a bare `"risk_score": 85` — always show *why*. Implemented in `ai-service/app/agents/react/explainability.py` (`build_attribution_matrix()`) and wired into `ReactPipelineExecutor.analyze()` (`react_executor.py`) immediately after the Risk Synthesizer's Final Answer is validated.
+
+### 14.1 Design principle
+
+Every `RiskDriver.severity_weight` is computed as a direct percentage of the **same** `components` dict `score_risk_matrix()` used to compute the numeric `risk_score` — never a second, independently-generated LLM narrative. This makes it structurally impossible for the explanation to contradict the number it explains.
+
+### 14.2 Schema (`app/agents/schemas.py`)
+
+```python
+class RiskDriver(BaseModel):
+    driver_id: str
+    code_snippet: str                 # real diff line(s), or a labeled structural descriptor
+    file_path: Optional[str] = None
+    severity_weight: float            # 0-100, this driver's % contribution to risk_score
+    justification_text: str
+    category: str                     # blast_radius | criticality | historical_precedent | change_type_baseline
+
+class ExplainabilityReport(BaseModel):
+    primary_risk_drivers: List[RiskDriver]      # 1-10 items
+    historical_correlation_factor: str
+    total_attributed_weight: float              # ~100.0
+    generated_at_ms: int
+```
+
+Attached to `FullAnalysisResponseV2.explainability_report` (`app/agents/react/api_models.py`).
+
+### 14.3 Frontend
+
+`frontend/src/components/dashboard/RiskAttributionBreakdown.tsx` renders each driver as a ranked row: category badge, percentage-weighted bar, the code snippet in a red-bordered `<pre><code>` block (or an italicized structural placeholder when no diff was supplied), and a hover tooltip with the full justification. `services/dashboardAdapters.ts::riskAttributionFromV2` maps the wire shape into the component's view-model props.
+
+Full design rationale, sequence diagram, and the builder's group-by-group algorithm: `ARCHITECTURE_BLUEPRINT.md` §7. Tests: `ai-service/tests/test_explainability.py`.
+
+---
+
+## 15. Module 8: Automated Evaluation & Ground-Truth Scoring
+
+**Goal:** verify the risk score is accurate, reliable, and free of hallucination — *before* a developer trusts it. Implemented as `ImpactAnalyserEvaluator` (`ai-service/app/evaluation/evaluator.py`), an independent "Auditor Agent" that runs *after* the Risk Synthesizer, never feeding back into the prediction it grades.
+
+### 15.1 Three metrics
+
+| Metric | What it checks | Method |
+|---|---|---|
+| **Context Precision/Recall** | Did the Historical Detective retrieve the *correct* incidents? | Structural ground truth: an incident is "relevant" if it shares an impacted service or change-type tag with the current change — computed against the full `incidents.json` corpus, not just the top-k retrieved |
+| **Faithfulness Score (0.0-1.0)** | Did the AI hallucinate a service/incident that was never retrieved? | Claim-level entity-entailment check over every `top_risks` / `step_by_step_mitigation` claim against the evidence set (`CodeAuditReport` + `HistoricalFindingsReport`) |
+| **Deterministic Ground-Truth Delta** | Does the AI's score match an independent rule-engine? | Counts literal DB-call/API-alteration patterns in the diff, folds them into a second baseline formula, and flags `high_variance_warning` if deviation from the AI's score exceeds **20%** |
+
+### 15.2 Verdict thresholds
+
+```
+LOW_CONFIDENCE_FLAGGED  — faithfulness < 0.5  OR  percentage_deviation > 50%
+REVIEW_RECOMMENDED      — faithfulness < 0.8  OR  high_variance_warning  OR  retrieval F1 < 0.5
+TRUSTED                 — otherwise
+```
+
+`evaluate()` never raises — each metric is wrapped in its own `try/except` and fail-closes to the most conservative value on error, so a bug in the evaluator can never take down the endpoint it audits.
+
+### 15.3 Feedback loop
+
+`POST /api/v1/feedback/capture` (`app/routes/feedback.py`) accepts a thumbs up/down vote and/or a manual risk-score override, persisted durably via `FeedbackStore` (`app/evaluation/feedback_store.py`) to an append-only `ai-service/data/feedback_store.jsonl`. Proxied 1:1 by the Spring Boot backend (`ApiProxyController.captureFeedback` / `getFeedbackForAnalysis`) and surfaced in the frontend via `FeedbackWidget.tsx` + `services/api.ts::submitFeedback`. This is the human-in-the-loop signal used to later recalibrate `score_risk_matrix`'s weights and the vector index's retrieval quality.
+
+### 15.4 Frontend
+
+`frontend/src/components/dashboard/EvaluationScorecard.tsx` renders the verdict badge plus per-metric gauges (faithfulness, precision/recall/F1, AI-vs-baseline delta). `services/dashboardAdapters.ts::evaluationScorecardFromV2` maps the wire shape into its props.
+
+Full design rationale, formulas, and sequence diagram: `ARCHITECTURE_BLUEPRINT.md` §8. Tests: `ai-service/tests/test_evaluator.py`, `ai-service/tests/test_feedback.py`.
+
+---
+
+## 16. Design Decisions & Trade-offs
 
 | Decision | Rationale |
 |---|---|
@@ -619,10 +711,13 @@ The AI-service test suite is the most granular, covering: individual v1 agents, 
 | **Per-agent iteration caps, not per-pipeline (v2)** | Prevents one runaway agent from starving the other two of the shared latency/cost budget; yields a known constant (9 LLM calls max) for capacity planning |
 | **Retrieval (top-k) instead of context-stuffing** | Keeps prompt size/cost bounded regardless of how large the incident/CR corpus grows |
 | **H2 in-memory, `create-drop`** | Appropriate for a hackathon/demo; explicitly called out as a production gap (see below) |
+| **Explanation derived from the same components as the score, not a second LLM call (Module 7)** | Eliminates the risk of an "explanation" that contradicts the number it's supposedly explaining — a real hallucination surface most XAI bolt-ons ignore |
+| **Evaluator is architecturally independent of the pipeline it grades (Module 8)** | An evaluator sharing its subject's blind spots (e.g. the same LLM call) provides no real signal; all three metrics are structural/algorithmic by default and require zero extra API keys |
+| **Feedback store is a JSONL file, not a database (Module 8)** | Zero extra infrastructure for the hackathon/demo while still being durable and offline-minable; swappable for Postgres behind the same interface later |
 
 ---
 
-## 15. Known Limitations / Production Hardening Path
+## 17. Known Limitations / Production Hardening Path
 
 Documented explicitly in `VERIFICATION.md` and this repo's design docs — carried forward here for visibility:
 
@@ -634,3 +729,5 @@ Documented explicitly in `VERIFICATION.md` and this repo's design docs — carri
 6. **No monitoring/alerting/observability stack** wired up beyond basic health checks and log level configuration.
 7. **Single-node design** — the provided Compose file is for development/demo; production would need k8s manifests, horizontal scaling for the AI service (stateless, easy to scale), and a shared cache/idempotency store (e.g., Redis) instead of the current in-process idempotency cache described in `ARCHITECTURE_BLUEPRINT.md` §5.3.
 8. **All seed data is synthetic** — `cmdb.json`, `incidents.json`, `change_requests.json`, and runbooks are sample data for demonstration purposes only.
+9. **Module 8's default faithfulness/context metrics are structural heuristics, not an LLM-as-judge** — deliberately, so the evaluator needs zero API keys and can never share a blind spot with a live LLM provider. An optional `RagasFaithfulnessStrategy` (`app/evaluation/evaluator.py`) can be injected for a supplementary LLM-judged opinion once `ragas`/`datasets` and a live provider are available; it is never required and never overrides the deterministic score.
+10. **Feedback store is a single-node JSONL file** — sufficient for a demo's audit trail; a production deployment should replace `FeedbackStore` with a real table (e.g. Postgres) behind the same interface so feedback survives node loss and can be queried/joined efficiently at scale.

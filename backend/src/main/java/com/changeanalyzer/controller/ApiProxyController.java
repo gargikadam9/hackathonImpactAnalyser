@@ -112,6 +112,27 @@ public class ApiProxyController {
     }
 
     /**
+     * MODULE 8 — POST /api/v1/feedback/capture
+     * Human-in-the-loop feedback: thumbs up/down and/or a manual risk-score
+     * override for a given analysisId, persisted by the AI service.
+     */
+    @PostMapping("/feedback/capture")
+    public ResponseEntity<JsonNode> captureFeedback(@RequestBody Map<String, Object> request) {
+        JsonNode result = aiServiceClient.captureFeedback(request);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * MODULE 8 — GET /api/v1/feedback/{analysisId}
+     * Retrieve all feedback captured so far for a given analysis.
+     */
+    @GetMapping("/feedback/{analysisId}")
+    public ResponseEntity<JsonNode> getFeedbackForAnalysis(@PathVariable String analysisId) {
+        JsonNode result = aiServiceClient.getFeedbackForAnalysis(analysisId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
      * GET /api/v1/analyses/history
      * Get analysis history (latest 20).
      */

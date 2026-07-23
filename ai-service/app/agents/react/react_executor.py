@@ -18,11 +18,13 @@ from __future__ import annotations
 import os
 import time
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from app.agents.react.code_auditor_agent import CodeAuditorAgent
+from app.agents.react.explainability import build_attribution_matrix
 from app.agents.react.historical_detective_agent import HistoricalDetectiveAgent
 from app.agents.react.risk_synthesizer_agent import RiskSynthesizerAgent
+from app.agents.react.tools import score_risk_matrix
 from app.agents.react.api_models import (
     AgentExecutionTrace,
     ChangeAnalysisRequestV2,
@@ -30,11 +32,19 @@ from app.agents.react.api_models import (
     ReactStepTrace,
 )
 from app.agents.schemas import MalformedOutputFallback
+from app.evaluation.evaluator import default_evaluator
+from app.rag.data_loader import DataLoader
 from app.security.sanitizer import RedactionReport, SanitizationError, default_sanitizer
 
 
 class ReactPipelineExecutor:
-    """Stateless orchestrator — safe to reuse a single instance across requests."""
+    """Orchestrator — safe to reuse a single instance across requests. Holds
+    a `DataLoader` so MODULE 8's evaluator can access the full incident
+    corpus for its context-precision/recall ground-truth computation without
+    re-reading `incidents.json` from disk on every request."""
+
+    def __init__(self, data_loader: Optional[DataLoader] = None):
+        self.data_loader = data_loader or DataLoader()
 
     def analyze(self, request: ChangeAnalysisRequestV2) -> FullAnalysisResponseV2:
         start = time.time()
@@ -85,6 +95,37 @@ class ReactPipelineExecutor:
             self._to_agent_trace(risk_run),
         ]
 
+        # --- MODULE 7: Explainable AI — build the strict attribution matrix ---
+        # Re-derive the SAME deterministic score components risk_synthesizer
+        # used (score_risk_matrix is a pure function of code_audit/historical,
+        # so this is not a second, divergent computation — it is the single
+        # source of truth both the score AND its explanation are built from).
+        score_result = score_risk_matrix(
+            code_audit=code_audit_run.output.model_dump(),
+            historical=historical_run.output.model_dump(),
+        )
+        explainability_report = build_attribution_matrix(
+            code_audit=code_audit_run.output,
+            historical=historical_run.output,
+            sanitized_diff_text=sanitized_diff,
+            risk_score=final_output.risk_score,
+            score_components=score_result["components"],
+        )
+
+        # --- MODULE 8: independent post-hoc evaluation of this prediction ---
+        # Runs AFTER the primary prediction is finalized and never feeds back
+        # into it — a true independent "Auditor Agent" pass (see
+        # app/evaluation/evaluator.py). Never allowed to fail the request:
+        # ImpactAnalyserEvaluator.evaluate() internally catches and
+        # fail-closes on any per-metric error.
+        evaluation_report = default_evaluator.evaluate(
+            code_audit=code_audit_run.output,
+            historical=historical_run.output,
+            final_output=final_output,
+            sanitized_diff_text=sanitized_diff,
+            all_incidents=self.data_loader.get_incidents(),
+        )
+
         response = FullAnalysisResponseV2(
             analysis_id=analysis_id,
             risk_score=final_output.risk_score,
@@ -103,6 +144,8 @@ class ReactPipelineExecutor:
             historical_findings=historical_run.output.model_dump(),
             redaction_report=redaction_report,
             agent_traces=agent_traces,
+            explainability_report=explainability_report,
+            evaluation_report=evaluation_report,
             processing_time_ms=int((time.time() - start) * 1000),
             mock_mode=os.getenv("PIPELINE_AI_PROVIDER", "mock") == "mock",
         )

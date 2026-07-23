@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.models import HealthResponse
 from app.pipeline import AgentPipeline
-from app.routes import chat, assistant, change_impact, system, sanitize, react_pipeline
+from app.routes import chat, assistant, change_impact, system, sanitize, react_pipeline, feedback
 
 # Application metadata
 APP_VERSION = "1.0.0"
@@ -58,8 +58,12 @@ app.include_router(assistant.router, prefix="/api/v1", tags=["Assistant"])
 app.include_router(change_impact.router, prefix="/api/v1", tags=["Change Impact"])
 app.include_router(system.router, prefix="/api/v1", tags=["System"])
 app.include_router(sanitize.router, prefix="/api/v1", tags=["Security"])
+# MODULE 8: human-in-the-loop feedback capture (thumbs up/down + score override)
+app.include_router(feedback.router, prefix="/api/v1", tags=["Feedback"])
 
 # v2: hardened 3-agent ReAct pipeline (Code Auditor -> Historical Detective -> Risk Synthesizer)
+# Also carries MODULE 7 (explainability_report) and MODULE 8 (evaluation_report)
+# as additional fields on FullAnalysisResponseV2 — see app/agents/react/react_executor.py
 app.include_router(react_pipeline.router, prefix="/api/v2", tags=["Change Impact V2 (ReAct)"])
 
 
