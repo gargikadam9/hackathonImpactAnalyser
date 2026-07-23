@@ -23,8 +23,10 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
 
 # AI Service connection
+# Defaults to the GCP Cloud Run deployment; override with AI_SERVICE_URL
+# to point at a local instance (e.g. http://localhost:8000) instead.
 ai-service:
-  url: ${AI_SERVICE_URL:http://localhost:8000}
+  url: ${AI_SERVICE_URL:https://hackathonimpactanalyser-904105072538.asia-south1.run.app}
   timeout: 30000
 
 logging:
