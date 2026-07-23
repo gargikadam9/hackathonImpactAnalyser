@@ -18,3 +18,11 @@ tiktoken==0.8.0
 
 
 python-dotenv==1.0.1
+
+# --- MODULE 8: Evaluation Framework (OPTIONAL) -------------------------------
+# ImpactAnalyserEvaluator (app/evaluation/evaluator.py) is fully deterministic
+# and requires NONE of the packages below to run. They are only needed if you
+# inject RagasFaithfulnessStrategy as a supplementary LLM-as-judge opinion:
+#   pip install ragas datasets
+# ragas==0.2.8
+# datasets==3.0.1

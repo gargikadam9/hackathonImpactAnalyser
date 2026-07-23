@@ -17,7 +17,10 @@ import type { FullAnalysisResponseV2 } from '../types/reactAnalysis'
 import type {
   CriticalityLevel,
   DependencyNode,
+  EvaluationScorecardProps,
   IncidentMatch,
+  RiskAttributionBreakdownProps,
+  RiskDriverView,
   RiskGaugeMetricsProps,
   RiskLevelLabel,
   RiskMetric,
@@ -190,4 +193,47 @@ export function incidentMatchesFromV2(report: FullAnalysisResponseV2): IncidentM
     rootCause: outage.root_cause,
     mitigationUsed: outage.mitigation_used,
   }))
+}
+
+// ---------------------------------------------------------------------------
+// MODULE 7 — Explainable AI (XAI) & Attribution Pipeline adapter
+// ---------------------------------------------------------------------------
+
+export function riskAttributionFromV2(report: FullAnalysisResponseV2): RiskAttributionBreakdownProps {
+  const drivers: RiskDriverView[] = report.explainability_report.primary_risk_drivers.map((driver) => ({
+    id: driver.driver_id,
+    codeSnippet: driver.code_snippet,
+    filePath: driver.file_path,
+    severityWeight: driver.severity_weight,
+    justification: driver.justification_text,
+    category: driver.category,
+  }))
+
+  return {
+    riskScore: report.risk_score,
+    drivers,
+    historicalCorrelationFactor: report.explainability_report.historical_correlation_factor,
+    totalAttributedWeight: report.explainability_report.total_attributed_weight,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// MODULE 8 — Automated Evaluation Metric & Ground-Truth Scoring adapter
+// ---------------------------------------------------------------------------
+
+export function evaluationScorecardFromV2(report: FullAnalysisResponseV2): EvaluationScorecardProps {
+  const evaluation = report.evaluation_report
+  return {
+    verdict: evaluation.overall_verdict,
+    faithfulnessScore: evaluation.faithfulness.score,
+    unsupportedClaims: evaluation.faithfulness.unsupported_claims,
+    contextPrecision: evaluation.context_precision_recall.precision_at_k,
+    contextRecall: evaluation.context_precision_recall.recall_at_k,
+    contextF1: evaluation.context_precision_recall.f1_score,
+    aiPredictedScore: evaluation.ground_truth_delta.ai_predicted_score,
+    deterministicBaselineScore: evaluation.ground_truth_delta.deterministic_baseline_score,
+    percentageDeviation: evaluation.ground_truth_delta.percentage_deviation,
+    highVarianceWarning: evaluation.ground_truth_delta.high_variance_warning,
+    evaluatorVersion: evaluation.evaluator_version,
+  }
 }

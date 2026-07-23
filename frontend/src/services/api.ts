@@ -1,5 +1,10 @@
 import type { ChangeImpactResponse, AssistantResponse, ChatResponse, ChangeType, Component } from '../types'
-import type { ChangeAnalysisRequestV2, FullAnalysisResponseV2 } from '../types/reactAnalysis'
+import type {
+  ChangeAnalysisRequestV2,
+  FeedbackCaptureResponse,
+  FeedbackEntry,
+  FullAnalysisResponseV2,
+} from '../types/reactAnalysis'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
 const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000'
@@ -126,5 +131,19 @@ export async function getAnalysisHistory(): Promise<ChangeImpactResponse[]> {
 // Get analysis by ID
 export async function getAnalysisById(analysisId: string): Promise<ChangeImpactResponse> {
   return fetchApi<ChangeImpactResponse>(`/api/v1/analyses/${analysisId}`)
+}
+
+// MODULE 8 — Feedback capture: thumbs up/down + manual risk-score override.
+// See ai-service/app/routes/feedback.py and app/evaluation/feedback_store.py.
+export async function submitFeedback(entry: FeedbackEntry): Promise<FeedbackCaptureResponse> {
+  return fetchApi<FeedbackCaptureResponse>('/api/v1/feedback/capture', {
+    method: 'POST',
+    body: JSON.stringify(entry),
+  })
+}
+
+// MODULE 8 — Retrieve all feedback captured so far for a specific analysis.
+export async function getFeedbackForAnalysis(analysisId: string): Promise<FeedbackCaptureResponse[]> {
+  return fetchApi<FeedbackCaptureResponse[]>(`/api/v1/feedback/${analysisId}`)
 }
 
