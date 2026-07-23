@@ -1,0 +1,233 @@
+[
+  {
+    "id": "src-001",
+    "name": "payment-gateway-repo",
+    "type": "repository",
+    "url": "https://github.com/org/payment-gateway",
+    "language": "Java",
+    "branch": "main",
+    "lastCommit": "a1b2c3d4e5f6",
+    "description": "Payment gateway microservice source code"
+  },
+  {
+    "id": "src-002",
+    "name": "user-service-repo",
+    "type": "repository",
+    "url": "https://github.com/org/user-service",
+    "language": "Python",
+    "branch": "main",
+    "lastCommit": "b2c3d4e5f6a7",
+    "description": "User management microservice source code"
+  },
+  {
+    "id": "src-003",
+    "name": "notification-service-repo",
+    "type": "repository",
+    "url": "https://github.com/org/notification-service",
+    "language": "Node.js",
+    "branch": "develop",
+    "lastCommit": "c3d4e5f6a7b8",
+    "description": "Notification delivery microservice source code"
+  },
+  {
+    "id": "src-004",
+    "name": "order-service-repo",
+    "type": "repository",
+    "url": "https://github.com/org/order-service",
+    "language": "Java",
+    "branch": "main",
+    "lastCommit": "d4e5f6a7b8c9",
+    "description": "Order management microservice source code"
+  },
+  {
+    "id": "src-005",
+    "name": "inventory-service-repo",
+    "type": "repository",
+    "url": "https://github.com/org/inventory-service",
+    "language": "Go",
+    "branch": "main",
+    "lastCommit": "e5f6a7b8c9d0",
+    "description": "Inventory management microservice source code"
+  },
+  {
+    "id": "src-006",
+    "name": "api-gateway-repo",
+    "type": "repository",
+    "url": "https://github.com/org/api-gateway",
+    "language": "Go",
+    "branch": "main",
+    "lastCommit": "f6a7b8c9d0e1",
+    "description": "API gateway configuration and plugins"
+  },
+  {
+    "id": "src-007",
+    "name": "fraud-detection-repo",
+    "type": "repository",
+    "url": "https://github.com/org/fraud-detection",
+    "language": "Python",
+    "branch": "develop",
+    "lastCommit": "a7b8c9d0e1f2",
+    "description": "Fraud detection ML service source code"
+  },
+  {
+    "id": "src-008",
+    "name": "product-catalog-repo",
+    "type": "repository",
+    "url": "https://github.com/org/product-catalog",
+    "language": "Java",
+    "branch": "main",
+    "lastCommit": "b8c9d0e1f2a3",
+    "description": "Product catalog microservice source code"
+  },
+  {
+    "id": "src-009",
+    "name": "checkout-service-repo",
+    "type": "repository",
+    "url": "https://github.com/org/checkout-service",
+    "language": "TypeScript",
+    "branch": "main",
+    "lastCommit": "c9d0e1f2a3b4",
+    "description": "Checkout orchestration service source code"
+  },
+  {
+    "id": "src-010",
+    "name": "shipping-service-repo",
+    "type": "repository",
+    "url": "https://github.com/org/shipping-service",
+    "language": "C#",
+    "branch": "develop",
+    "lastCommit": "d0e1f2a3b4c5",
+    "description": "Shipping calculation and label generation service"
+  },
+  {
+    "id": "src-011",
+    "name": "frontend-web-repo",
+    "type": "repository",
+    "url": "https://github.com/org/frontend-web",
+    "language": "TypeScript",
+    "branch": "main",
+    "lastCommit": "e1f2a3b4c5d6",
+    "description": "Main web frontend application"
+  },
+  {
+    "id": "src-012",
+    "name": "mobile-app-repo",
+    "type": "repository",
+    "url": "https://github.com/org/mobile-app",
+    "language": "Kotlin",
+    "branch": "develop",
+    "lastCommit": "f2a3b4c5d6e7",
+    "description": "Mobile application for iOS and Android"
+  },
+  {
+    "id": "src-013",
+    "name": "infrastructure-terraform",
+    "type": "infrastructure",
+    "url": "https://github.com/org/infrastructure",
+    "language": "HCL",
+    "branch": "main",
+    "lastCommit": "a3b4c5d6e7f8",
+    "description": "Terraform infrastructure as code"
+  },
+  {
+    "id": "src-014",
+    "name": "kubernetes-manifests",
+    "type": "infrastructure",
+    "url": "https://github.com/org/k8s-manifests",
+    "language": "YAML",
+    "branch": "main",
+    "lastCommit": "b4c5d6e7f8a9",
+    "description": "Kubernetes deployment manifests"
+  },
+  {
+    "id": "src-015",
+    "name": "ci-cd-pipelines",
+    "type": "infrastructure",
+    "url": "https://github.com/org/ci-cd",
+    "language": "YAML",
+    "branch": "main",
+    "lastCommit": "c5d6e7f8a9b0",
+    "description": "CI/CD pipeline configurations"
+  },
+  {
+    "id": "src-016",
+    "name": "shared-libraries",
+    "type": "library",
+    "url": "https://github.com/org/shared-libs",
+    "language": "Java",
+    "branch": "main",
+    "lastCommit": "d6e7f8a9b0c1",
+    "description": "Shared Java libraries and utilities"
+  },
+  {
+    "id": "src-017",
+    "name": "data-pipelines",
+    "type": "data",
+    "url": "https://github.com/org/data-pipelines",
+    "language": "Python",
+    "branch": "main",
+    "lastCommit": "e7f8a9b0c1d2",
+    "description": "ETL and data processing pipelines"
+  },
+  {
+    "id": "src-018",
+    "name": "search-engine",
+    "type": "library",
+    "url": "https://github.com/org/search-engine",
+    "language": "Java",
+    "branch": "develop",
+    "lastCommit": "f8a9b0c1d2e3",
+    "description": "Custom search engine implementation"
+  },
+  {
+    "id": "src-019",
+    "name": "ml-models-repo",
+    "type": "data",
+    "url": "https://github.com/org/ml-models",
+    "language": "Python",
+    "branch": "main",
+    "lastCommit": "a9b0c1d2e3f4",
+    "description": "Machine learning model definitions and training code"
+  },
+  {
+    "id": "src-020",
+    "name": "documentation-repo",
+    "type": "documentation",
+    "url": "https://github.com/org/docs",
+    "language": "Markdown",
+    "branch": "main",
+    "lastCommit": "b0c1d2e3f4a5",
+    "description": "Technical documentation and architecture decision records"
+  },
+  {
+    "id": "src-021",
+    "name": "monitoring-stack",
+    "type": "infrastructure",
+    "url": "https://github.com/org/monitoring",
+    "language": "YAML",
+    "branch": "main",
+    "lastCommit": "c1d2e3f4a5b6",
+    "description": "Prometheus, Grafana, and alerting configurations"
+  },
+  {
+    "id": "src-022",
+    "name": "security-policies",
+    "type": "documentation",
+    "url": "https://github.com/org/security",
+    "language": "Markdown",
+    "branch": "main",
+    "lastCommit": "d2e3f4a5b6c7",
+    "description": "Security policies and compliance documentation"
+  },
+  {
+    "id": "src-023",
+    "name": "load-testing",
+    "type": "test",
+    "url": "https://github.com/org/load-tests",
+    "language": "JavaScript",
+    "branch": "main",
+    "lastCommit": "e3f4a5b6c7d8",
+    "description": "Load testing scripts using k6"
+  }
+]
+
